@@ -1,54 +1,120 @@
-from django.shortcuts import render, redirect
-from .models import Feedback
-from transformers import pipeline
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Yönetim Paneli | Yapay Zeka</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { background-color: #f8f9fa; }
+        .card-stat { border-left: 5px solid; border-radius: 10px; }
+        .border-pos { border-color: #198754; } 
+        .border-neg { border-color: #dc3545; }
+        .border-neu { border-color: #ffc107; } 
+        .border-tot { border-color: #0d6efd; }
+    </style>
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 px-3">
+    <a class="navbar-brand" href="#">🚀 Üniversite NLP Yönetim Paneli</a>
+    <div class="ms-auto d-flex align-items-center">
+        <span class="text-light me-3">Hoş geldin, {{ request.user.username }}</span>
+        <form action="{% url 'logout' %}" method="post" class="m-0">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-sm btn-outline-light">Çıkış Yap</button>
+        </form>
+    </div>
+</nav>
 
-# Modeli belleğe alıyoruz (Sadece bir kez yüklenir)
-print("🚀 Yapay Zeka Modeli Aktif Ediliyor...")
-sentiment_model = pipeline("sentiment-analysis", model="savasy/bert-base-turkish-sentiment-cased")
+<div class="container-fluid px-4">
+    <!-- İstatistik Kartları -->
+    <div class="row mb-4">
+        <div class="col-md-3"><div class="card card-stat border-tot p-3"><h6>Toplam Bildirim</h6><h2>{{ total }}</h2></div></div>
+        <div class="col-md-3"><div class="card card-stat border-pos p-3"><h6>Olumlu</h6><h2 class="text-success">{{ pos_count }}</h2></div></div>
+        <div class="col-md-3"><div class="card card-stat border-neg p-3"><h6>Olumsuz</h6><h2 class="text-danger">{{ neg_count }}</h2></div></div>
+        <div class="col-md-3"><div class="card card-stat border-neu p-3"><h6>Nötr</h6><h2 class="text-warning">{{ neu_count }}</h2></div></div>
+    </div>
 
-def dashboard(request):
-    # Eğer form gönderildiyse (Yeni veri eklendiyse)
-    if request.method == 'POST':
-        category = request.POST.get('category')
-        text = request.POST.get('text')
+    <!-- Kelime Bulutu (Word Cloud) -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Öne Çıkan Anahtar Kelimeler</h5>
+                </div>
+                <div class="card-body text-center p-2">
+                    {% if wordcloud_image %}
+                        <img src="data:image/png;base64,{{ wordcloud_image }}" class="img-fluid rounded" alt="Kelime Bulutu">
+                    {% else %}
+                        <p class="text-muted my-4">Kelime bulutu oluşturmak için henüz yeterli veri yok.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <!-- Grafik -->
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white"><h5 class="mb-0">Duygu Dağılımı</h5></div>
+                <div class="card-body d-flex justify-content-center">
+                    <div style="width: 250px; height: 250px;"><canvas id="aiChart"></canvas></div>
+                </div>
+            </div>
+        </div>
         
-        if text and category:
-            # 1. Metni Yapay Zekaya Gönder
-            analiz = sentiment_model(text)[0]
-            label = analiz['label'].lower()
-            
-            # 2. İngilizce etiketleri Türkçeye çevir
-            if 'pos' in label:
-                sentiment_tr = 'Olumlu'
-            elif 'neg' in label:
-                sentiment_tr = 'Olumsuz'
-            else:
-                sentiment_tr = 'Nötr'
-                
-            # 3. Yüzdelik güven skorunu hesapla
-            score_percent = round(analiz['score'] * 100, 2)
-            
-            # 4. Veritabanına Kaydet
-            Feedback.objects.create(
-                category=category, 
-                text=text, 
-                sentiment=sentiment_tr, 
-                score=score_percent
-            )
-            
-            # İşlem bitince sayfayı yenile
-            return redirect('dashboard')
+        <!-- Tablo -->
+        <div class="col-md-8">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Son Kayıtlar</h5>
+                    <a href="{% url 'export_to_excel' %}" class="btn btn-sm btn-success">⬇️ Excel Olarak İndir (CSV)</a>
+                </div>
+                <div class="card-body p-0" style="max-height: 300px; overflow-y: auto;">
+                    <table class="table table-striped mb-0">
+                        <thead class="table-dark sticky-top">
+                            <tr><th>Tarih</th><th>Kategori</th><th>Metin</th><th>Karar</th><th>Skor</th></tr>
+                        </thead>
+                        <tbody>
+                            {% for item in feedbacks %}
+                            <tr>
+                                <td>{{ item.created_at|date:"d M H:i" }}</td>
+                                <td><span class="badge bg-secondary">{{ item.category }}</span></td>
+                                <td class="text-truncate" style="max-width: 250px;" title="{{ item.text }}">{{ item.text }}</td>
+                                <td>
+                                    {% if item.sentiment == 'Olumlu' %}<span class="badge bg-success">OLUMLU</span>
+                                    {% elif item.sentiment == 'Olumsuz' %}<span class="badge bg-danger">OLUMSUZ</span>
+                                    {% else %}<span class="badge bg-warning text-dark">NÖTR</span>{% endif %}
+                                </td>
+                                <td>%{{ item.score }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center py-4">Sistemde henüz bir bildirim bulunmuyor.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
-    # Sayfa normal yüklendiğinde veritabanındaki verileri çek
-    feedbacks = Feedback.objects.all().order_by('-created_at')
-    
-    # İstatistikleri hesapla
-    context = {
-        'feedbacks': feedbacks,
-        'total': feedbacks.count(),
-        'pos_count': feedbacks.filter(sentiment='Olumlu').count(),
-        'neg_count': feedbacks.filter(sentiment='Olumsuz').count(),
-        'neu_count': feedbacks.filter(sentiment='Nötr').count(),
-    }
-    
-    return render(request, 'analyzer/dashboard.html', context)
+<script>
+    new Chart(document.getElementById('aiChart').getContext('2d'), {
+        type: 'doughnut',
+        data: { 
+            labels: ['Olumlu', 'Olumsuz', 'Nötr'], 
+            datasets: [{ 
+                data: [{{ pos_count }}, {{ neg_count }}, {{ neu_count }}], 
+                backgroundColor: ['#198754', '#dc3545', '#ffc107'], 
+                borderWidth: 0 
+            }] 
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+    });
+</script>
+</body>
+</html>

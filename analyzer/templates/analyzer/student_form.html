@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kampüs Geri Bildirim Formu</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+    <div class="container mt-5" style="max-width: 600px;">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white text-center py-3">
+                <h4 class="mb-0">Kampüs Geri Bildirim Formu</h4>
+            </div>
+            <div class="card-body p-4">
+                {% if gonderildi %}
+                <div class="alert alert-success text-center">
+                    Geri bildiriminiz başarıyla iletildi. Yapay zeka sistemimiz tarafından analiz edilecektir. Teşekkürler!
+                </div>
+                {% endif %}
+                
+                <form method="POST">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Konu Kategorisi</label>
+                        <select name="category" class="form-select" required>
+                            <option value="Yemekhane">Yemekhane</option>
+                            <option value="Kütüphane">Kütüphane</option>
+                            <option value="İnternet">İnternet</option>
+                            <option value="Ders Programı">Ders Programı</option>
+                            <option value="Ulaşım">Ulaşım</option>
+                            <option value="Temizlik">Temizlik</option>
+                        </select>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Düşünceleriniz</label>
+                        <textarea name="text" class="form-control" rows="5" required placeholder="Lütfen görüşlerinizi detaylıca yazın..."></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100 btn-lg">Gönder</button>
+                </form>
+            </div>
+        </div>
+        <div class="text-center mt-3">
+            <a href="{% url 'login' %}" class="text-muted text-decoration-none small">Yönetici Girişi</a>
+        </div>
+    </div>
+</body>
+</html>

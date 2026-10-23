@@ -2,161 +2,82 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kampüs Geri Bildirim | Yapay Zeka Analiz Paneli</title>
+    <title>Yönetim Paneli | Yapay Zeka</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        .card-stat { border-left: 5px solid; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-        .border-pos { border-color: #198754; }
-        .border-neg { border-color: #dc3545; }
-        .border-neu { border-color: #ffc107; }
-        .border-tot { border-color: #0d6efd; }
-        .table-custom th { background-color: #343a40; color: white; }
+        body { background-color: #f8f9fa; }
+        .card-stat { border-left: 5px solid; border-radius: 10px; }
+        .border-pos { border-color: #198754; } .border-neg { border-color: #dc3545; }
+        .border-neu { border-color: #ffc107; } .border-tot { border-color: #0d6efd; }
     </style>
 </head>
 <body>
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="#">🚀 Üniversite NLP Analiz Platformu</a>
-        <span class="badge bg-primary">Yapay Zeka Destekli</span>
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 px-3">
+    <a class="navbar-brand" href="#">🚀 Üniversite NLP Yönetim Paneli</a>
+    <div class="ms-auto d-flex align-items-center">
+        <span class="text-light me-3">Hoş geldin, {{ request.user.username }}</span>
+        <form action="{% url 'logout' %}" method="post" class="m-0">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-sm btn-outline-light">Çıkış Yap</button>
+        </form>
     </div>
 </nav>
 
 <div class="container-fluid px-4">
-    <!-- İstatistik Kartları -->
     <div class="row mb-4">
-        <div class="col-md-3">
-            <div class="card card-stat border-tot p-3">
-                <h6 class="text-muted">Toplam Bildirim</h6>
-                <h2 class="mb-0">{{ total }}</h2>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card card-stat border-pos p-3">
-                <h6 class="text-muted">Olumlu (Positive)</h6>
-                <h2 class="mb-0 text-success">{{ pos_count }}</h2>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card card-stat border-neg p-3">
-                <h6 class="text-muted">Olumsuz (Negative)</h6>
-                <h2 class="mb-0 text-danger">{{ neg_count }}</h2>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card card-stat border-neu p-3">
-                <h6 class="text-muted">Nötr (Neutral)</h6>
-                <h2 class="mb-0 text-warning">{{ neu_count }}</h2>
-            </div>
-        </div>
+        <div class="col-md-3"><div class="card card-stat border-tot p-3"><h6>Toplam Bildirim</h6><h2>{{ total }}</h2></div></div>
+        <div class="col-md-3"><div class="card card-stat border-pos p-3"><h6>Olumlu</h6><h2 class="text-success">{{ pos_count }}</h2></div></div>
+        <div class="col-md-3"><div class="card card-stat border-neg p-3"><h6>Olumsuz</h6><h2 class="text-danger">{{ neg_count }}</h2></div></div>
+        <div class="col-md-3"><div class="card card-stat border-neu p-3"><h6>Nötr</h6><h2 class="text-warning">{{ neu_count }}</h2></div></div>
     </div>
 
-    <div class="row">
-        <!-- Veri Giriş Formu -->
-        <div class="col-md-4 mb-4">
-            <div class="card shadow-sm">
-                <div class="card-header bg-white">
-                    <h5 class="mb-0">Yeni Geri Bildirim Ekle</h5>
-                </div>
-                <div class="card-body">
-                    <form method="POST">
-                        {% csrf_token %}
-                        <div class="mb-3">
-                            <label class="form-label">Kategori</label>
-                            <select name="category" class="form-select" required>
-                                <option value="Yemekhane">Yemekhane</option>
-                                <option value="Kütüphane">Kütüphane</option>
-                                <option value="İnternet">İnternet</option>
-                                <option value="Ders Programı">Ders Programı</option>
-                                <option value="Ulaşım">Ulaşım</option>
-                                <option value="Temizlik">Temizlik</option>
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Metin (Yapay Zeka Analiz Edecek)</label>
-                            <textarea name="text" class="form-control" rows="4" required placeholder="Öğrencinin şikayet veya memnuniyetini yazın..."></textarea>
-                        </div>
-                        <button type="submit" class="btn btn-primary w-100">Analiz Et ve Kaydet</button>
-                    </form>
-                </div>
-            </div>
-        </div>
-
-        <!-- Grafik -->
-        <div class="col-md-8 mb-4">
+    <div class="row mb-4">
+        <div class="col-md-4">
             <div class="card shadow-sm h-100">
-                <div class="card-header bg-white">
-                    <h5 class="mb-0">Duygu Dağılımı (AI Çıktısı)</h5>
-                </div>
+                <div class="card-header bg-white"><h5 class="mb-0">Duygu Dağılımı</h5></div>
                 <div class="card-body d-flex justify-content-center">
-                    <div style="width: 300px; height: 300px;">
-                        <canvas id="aiChart"></canvas>
-                    </div>
+                    <div style="width: 250px; height: 250px;"><canvas id="aiChart"></canvas></div>
                 </div>
             </div>
         </div>
-    </div>
-
-    <!-- Veri Tablosu -->
-    <div class="card shadow-sm mb-5">
-        <div class="card-header bg-white">
-            <h5 class="mb-0">Son Kayıtlar ve Analiz Sonuçları</h5>
-        </div>
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-custom table-striped mb-0">
-                    <thead>
-                        <tr>
-                            <th>Tarih</th>
-                            <th>Kategori</th>
-                            <th>Metin</th>
-                            <th>Yapay Zeka Kararı</th>
-                            <th>Eminlik Skoru</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in feedbacks %}
-                        <tr>
-                            <td>{{ item.created_at|date:"d M Y H:i" }}</td>
-                            <td><span class="badge bg-secondary">{{ item.category }}</span></td>
-                            <td>{{ item.text }}</td>
-                            <td>
-                                {% if item.sentiment == 'Olumlu' %}
-                                    <span class="badge bg-success">OLUMLU</span>
-                                {% elif item.sentiment == 'Olumsuz' %}
-                                    <span class="badge bg-danger">OLUMSUZ</span>
-                                {% else %}
-                                    <span class="badge bg-warning text-dark">NÖTR</span>
-                                {% endif %}
-                            </td>
-                            <td>%{{ item.score }}</td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="5" class="text-center py-4">Henüz hiç geri bildirim eklenmedi. Sol taraftaki formu kullanarak veri ekleyin.</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+        <div class="col-md-8">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+    <h5 class="mb-0">Son Kayıtlar</h5>
+    <a href="{% url 'export_to_excel' %}" class="btn btn-sm btn-success">⬇️ Excel Olarak İndir (CSV)</a>
+</div>
+                <div class="card-body p-0" style="max-height: 300px; overflow-y: auto;">
+                    <table class="table table-striped mb-0">
+                        <thead class="table-dark sticky-top">
+                            <tr><th>Tarih</th><th>Kategori</th><th>Metin</th><th>Karar</th><th>Skor</th></tr>
+                        </thead>
+                        <tbody>
+                            {% for item in feedbacks %}
+                            <tr>
+                                <td>{{ item.created_at|date:"d M H:i" }}</td>
+                                <td><span class="badge bg-secondary">{{ item.category }}</span></td>
+                               <td class="text-truncate" style="max-width: 250px;" title="{{ item.text }}">{{ item.text }}</td>
+                                <td>
+                                    {% if item.sentiment == 'Olumlu' %}<span class="badge bg-success">OLUMLU</span>
+                                    {% elif item.sentiment == 'Olumsuz' %}<span class="badge bg-danger">OLUMSUZ</span>
+                                    {% else %}<span class="badge bg-warning text-dark">NÖTR</span>{% endif %}
+                                </td>
+                                <td>%{{ item.score }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
 <script>
-    const ctx = document.getElementById('aiChart').getContext('2d');
-    new Chart(ctx, {
+    new Chart(document.getElementById('aiChart').getContext('2d'), {
         type: 'doughnut',
-        data: {
-            labels: ['Olumlu', 'Olumsuz', 'Nötr'],
-            datasets: [{
-                data: [{{ pos_count }}, {{ neg_count }}, {{ neu_count }}],
-                backgroundColor: ['#198754', '#dc3545', '#ffc107'],
-                borderWidth: 0
-            }]
-        },
+        data: { labels: ['Olumlu', 'Olumsuz', 'Nötr'], datasets: [{ data: [{{ pos_count }}, {{ neg_count }}, {{ neu_count }}], backgroundColor: ['#198754', '#dc3545', '#ffc107'], borderWidth: 0 }] },
         options: { responsive: true, maintainAspectRatio: false }
     });
 </script>
