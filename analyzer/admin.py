@@ -1,3 +1,6 @@
 from django.contrib import admin
+from .models import Feedback, Institution, UserProfile
 
-# Register your models here.
+admin.site.register(Institution)
+admin.site.register(UserProfile)
+admin.site.register(Feedback)

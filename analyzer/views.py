@@ -1,120 +1,142 @@
-<!DOCTYPE html>
-<html lang="tr">
-<head>
-    <meta charset="UTF-8">
-    <title>Yönetim Paneli | Yapay Zeka</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        body { background-color: #f8f9fa; }
-        .card-stat { border-left: 5px solid; border-radius: 10px; }
-        .border-pos { border-color: #198754; } 
-        .border-neg { border-color: #dc3545; }
-        .border-neu { border-color: #ffc107; } 
-        .border-tot { border-color: #0d6efd; }
-    </style>
-</head>
-<body>
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 px-3">
-    <a class="navbar-brand" href="#">🚀 Üniversite NLP Yönetim Paneli</a>
-    <div class="ms-auto d-flex align-items-center">
-        <span class="text-light me-3">Hoş geldin, {{ request.user.username }}</span>
-        <form action="{% url 'logout' %}" method="post" class="m-0">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-sm btn-outline-light">Çıkış Yap</button>
-        </form>
-    </div>
-</nav>
+from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required
+from django.db.models import Count
+from .models import Feedback, Institution, UserProfile
+from transformers import pipeline
+import csv
+from django.http import HttpResponse
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from django.core.mail import send_mail
 
-<div class="container-fluid px-4">
-    <!-- İstatistik Kartları -->
-    <div class="row mb-4">
-        <div class="col-md-3"><div class="card card-stat border-tot p-3"><h6>Toplam Bildirim</h6><h2>{{ total }}</h2></div></div>
-        <div class="col-md-3"><div class="card card-stat border-pos p-3"><h6>Olumlu</h6><h2 class="text-success">{{ pos_count }}</h2></div></div>
-        <div class="col-md-3"><div class="card card-stat border-neg p-3"><h6>Olumsuz</h6><h2 class="text-danger">{{ neg_count }}</h2></div></div>
-        <div class="col-md-3"><div class="card card-stat border-neu p-3"><h6>Nötr</h6><h2 class="text-warning">{{ neu_count }}</h2></div></div>
-    </div>
+print("🚀 Yapay Zeka Modeli Aktif Ediliyor...")
+sentiment_model = pipeline("sentiment-analysis", model="savasy/bert-base-turkish-sentiment-cased")
 
-    <!-- Kelime Bulutu (Word Cloud) -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card shadow-sm">
-                <div class="card-header bg-white">
-                    <h5 class="mb-0">Öne Çıkan Anahtar Kelimeler</h5>
-                </div>
-                <div class="card-body text-center p-2">
-                    {% if wordcloud_image %}
-                        <img src="data:image/png;base64,{{ wordcloud_image }}" class="img-fluid rounded" alt="Kelime Bulutu">
-                    {% else %}
-                        <p class="text-muted my-4">Kelime bulutu oluşturmak için henüz yeterli veri yok.</p>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="row mb-4">
-        <!-- Grafik -->
-        <div class="col-md-4">
-            <div class="card shadow-sm h-100">
-                <div class="card-header bg-white"><h5 class="mb-0">Duygu Dağılımı</h5></div>
-                <div class="card-body d-flex justify-content-center">
-                    <div style="width: 250px; height: 250px;"><canvas id="aiChart"></canvas></div>
-                </div>
-            </div>
-        </div>
+def student_form(request):
+    gonderildi = False
+    takip_kodu = None
+    hata_mesaji = None
+    kurumlar = Institution.objects.filter(is_active=True)
+    
+    if request.method == 'POST':
+        kurum_id = request.POST.get('institution')
+        category = request.POST.get('category')
+        text = request.POST.get('text')
+        email = request.POST.get('email', '').strip()
         
-        <!-- Tablo -->
-        <div class="col-md-8">
-            <div class="card shadow-sm h-100">
-                <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">Son Kayıtlar</h5>
-                    <a href="{% url 'export_to_excel' %}" class="btn btn-sm btn-success">⬇️ Excel Olarak İndir (CSV)</a>
-                </div>
-                <div class="card-body p-0" style="max-height: 300px; overflow-y: auto;">
-                    <table class="table table-striped mb-0">
-                        <thead class="table-dark sticky-top">
-                            <tr><th>Tarih</th><th>Kategori</th><th>Metin</th><th>Karar</th><th>Skor</th></tr>
-                        </thead>
-                        <tbody>
-                            {% for item in feedbacks %}
-                            <tr>
-                                <td>{{ item.created_at|date:"d M H:i" }}</td>
-                                <td><span class="badge bg-secondary">{{ item.category }}</span></td>
-                                <td class="text-truncate" style="max-width: 250px;" title="{{ item.text }}">{{ item.text }}</td>
-                                <td>
-                                    {% if item.sentiment == 'Olumlu' %}<span class="badge bg-success">OLUMLU</span>
-                                    {% elif item.sentiment == 'Olumsuz' %}<span class="badge bg-danger">OLUMSUZ</span>
-                                    {% else %}<span class="badge bg-warning text-dark">NÖTR</span>{% endif %}
-                                </td>
-                                <td>%{{ item.score }}</td>
-                            </tr>
-                            {% empty %}
-                            <tr>
-                                <td colspan="5" class="text-center py-4">Sistemde henüz bir bildirim bulunmuyor.</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+        yasakli_domainler = ['yopmail.com', 'tempmail.com', '10minutemail.com', 'guerrillamail.com', 'mailinator.com', 'throwawaymail.com']
+        
+        if email:
+            domain = email.split('@')[-1].lower()
+            if domain in yasakli_domainler:
+                hata_mesaji = "Geçici veya sahte e-posta adresleri kullanılamaz. Lütfen geçerli bir adres girin."
+        
+        if text and category and kurum_id and email and not hata_mesaji:
+            secilen_kurum = Institution.objects.get(id=kurum_id)
+            analiz = sentiment_model(text)[0]
+            label = analiz['label'].lower()
+            
+            if 'pos' in label: sentiment_tr = 'Olumlu'
+            elif 'neg' in label: sentiment_tr = 'Olumsuz'
+            else: sentiment_tr = 'Nötr'
+                
+            score_percent = round(analiz['score'] * 100, 2)
+            
+            yeni_kayit = Feedback.objects.create(
+                institution=secilen_kurum,
+                category=category, 
+                text=text, 
+                sentiment=sentiment_tr, 
+                score=score_percent,
+                student_email=email
+            )
+            takip_kodu = yeni_kayit.tracking_code
+            gonderildi = True
+            
+    return render(request, 'analyzer/student_form.html', {
+        'gonderildi': gonderildi, 
+        'takip_kodu': takip_kodu, 
+        'kurumlar': kurumlar,
+        'hata_mesaji': hata_mesaji
+    })
 
-<script>
-    new Chart(document.getElementById('aiChart').getContext('2d'), {
-        type: 'doughnut',
-        data: { 
-            labels: ['Olumlu', 'Olumsuz', 'Nötr'], 
-            datasets: [{ 
-                data: [{{ pos_count }}, {{ neg_count }}, {{ neu_count }}], 
-                backgroundColor: ['#198754', '#dc3545', '#ffc107'], 
-                borderWidth: 0 
-            }] 
-        },
-        options: { responsive: true, maintainAspectRatio: false }
-    });
-</script>
-</body>
-</html>
+def track_status(request):
+    feedback = None
+    error = None
+    if request.method == 'POST':
+        code = request.POST.get('tracking_code', '').strip().upper()
+        try:
+            feedback = Feedback.objects.get(tracking_code=code)
+        except Feedback.DoesNotExist:
+            error = "Bu takip numarasına ait bir kayıt bulunamadı."
+    return render(request, 'analyzer/track_status.html', {'feedback': feedback, 'error': error})
+
+@login_required(login_url='/login/')
+def dashboard(request):
+    try:
+        kullanici_kurumu = request.user.profile.institution
+        feedbacks = Feedback.objects.filter(institution=kullanici_kurumu).order_by('-created_at')
+        kurum_adi = kullanici_kurumu.name
+    except:
+        feedbacks = Feedback.objects.none()
+        kurum_adi = "Kurum Atanmamış!"
+
+    total_count = feedbacks.count()
+    category_data = feedbacks.values('category').annotate(count=Count('category')).order_by('-count')
+    
+    context = {
+        'feedbacks': feedbacks,
+        'total': total_count,
+        'pos_count': feedbacks.filter(sentiment='Olumlu').count(),
+        'neg_count': feedbacks.filter(sentiment='Olumsuz').count(),
+        'neu_count': feedbacks.filter(sentiment='Nötr').count(),
+        'category_data': category_data,
+        'kurum_adi': kurum_adi,
+    }
+    return render(request, 'analyzer/dashboard.html', context)
+
+@login_required(login_url='/login/')
+def update_status(request, pk):
+    if request.method == 'POST':
+        feedback = Feedback.objects.get(id=pk)
+        feedback.status = request.POST.get('status', 'Beklemede')
+        feedback.admin_note = request.POST.get('admin_note', '')
+        feedback.save()
+
+        if feedback.status == 'Çözüldü' and feedback.student_email:
+            try:
+                subject = f"{feedback.institution.name} - Şikayetiniz Çözüldü ({feedback.tracking_code})"
+                message = f"Merhaba,\n\nİletmiş olduğunuz bildirim yönetimimiz tarafından incelenmiş ve çözülmüştür.\n\nİletilen Mesaj: {feedback.text}\nYönetici Notu: {feedback.admin_note}\n\nİyi günler dileriz."
+                send_mail(subject, message, 'noreply@saasmerkezi.com', [feedback.student_email])
+                print(f"📧 Başarılı: {feedback.student_email} adresine mail gönderildi!")
+            except Exception as e:
+                print(f"❌ Mail Hatası: {e}")
+
+    return redirect('dashboard')
+
+@login_required(login_url='/login/')
+def export_to_excel(request):
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="sistem_analiz_raporu.csv"'
+    response.write(u'\ufeff'.encode('utf8'))
+    writer = csv.writer(response, delimiter=';')
+    writer.writerow(['Tarih', 'Kurum', 'Takip Kodu', 'Durum', 'Kategori', 'Geri Bildirim', 'Karar', 'Skor'])
+    
+    try:
+        feedbacks = Feedback.objects.filter(institution=request.user.profile.institution).order_by('-created_at')
+    except:
+        feedbacks = []
+
+    for f in feedbacks:
+        tarih = f.created_at.strftime("%Y-%m-%d %H:%M")
+        writer.writerow([tarih, f.institution.name, f.tracking_code, f.status, f.category, f.text, f.sentiment, f.score])
+    return response
+
+@api_view(['POST'])
+def api_analyze(request):
+    text = request.data.get('text', '')
+    if not text: return Response({'hata': 'Metin gönderin.'}, status=400)
+    analiz = sentiment_model(text)[0]
+    label = analiz['label'].lower()
+    sentiment_tr = 'Olumlu' if 'pos' in label else ('Olumsuz' if 'neg' in label else 'Nötr')
+    return Response({'metin': text, 'karar': sentiment_tr, 'skor': round(analiz['score'] * 100, 2)})
